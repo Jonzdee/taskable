@@ -10,125 +10,139 @@ import {
   AlertTriangle,
   Zap,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 
 export default function Dashboard() {
   const { tasks = [], user = {}, coins = 0 } = useApp();
 
   return (
-    <>
+    <div className="min-h-screen bg-black">
       <Navbar />
 
-      <div className="max-w-5xl mx-auto space-y-6 p-4 md:p-6">
-        {/* --- ACCOUNT STATUS BANNER --- */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-6 flex flex-col gap-4 shadow-2xl">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-500/10 p-3 md:p-4 rounded-xl md:rounded-2xl border border-emerald-500/20 shrink-0">
-              <ShieldCheck className="text-emerald-500" size={22} />
-            </div>
-            <div>
-              <h2 className="text-white font-black italic text-base md:text-xl uppercase tracking-tighter">
-                Status: Highly Active
-              </h2>
-              <p className="text-zinc-500 text-[10px] md:text-xs font-bold uppercase tracking-widest">
-                Trust Score: {user?.trustScore || 98}% · Premium Earner
-              </p>
-            </div>
-          </div>
+      {/* 
+          pb-28: Extra bottom padding so the last task isn't hidden by the Mobile Bottom Bar.
+          max-w-5xl: Keeps it centered on tablets/desktop.
+      */}
+      <div className="max-w-5xl mx-auto space-y-5 p-4 md:p-8 pb-28 lg:pb-10">
+        {/* --- HERO / STATUS SECTION --- */}
+        <section className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-[2rem] p-5 md:p-8 shadow-2xl">
+          {/* Subtle Background Glow */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 blur-[50px] rounded-full" />
 
-          <div className="bg-black/50 px-4 py-3 rounded-2xl border border-zinc-800 flex items-center gap-3 w-full">
-            <Zap
-              className="text-yellow-400 shrink-0"
-              size={16}
-              fill="currentColor"
-            />
-            <p className="text-[10px] text-zinc-400 font-black uppercase leading-tight">
-              Daily Streak:{" "}
-              <span className="text-white text-xs md:text-sm">5 Days</span>{" "}
-              &nbsp;·&nbsp; +5% Bonus active
-            </p>
-          </div>
-        </div>
-
-        {/* --- CRITICAL RULES GRID --- */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-          <div className="bg-red-500/5 border border-red-500/20 p-4 md:p-5 rounded-2xl md:rounded-3xl flex gap-3">
-            <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
-            <div>
-              <h4 className="text-red-500 font-black text-[10px] uppercase tracking-widest mb-1">
-                Anti-Unfollow Policy
-              </h4>
-              <p className="text-zinc-500 text-[11px] leading-relaxed">
-                Unfollowing or unliking within 30 days results in{" "}
-                <span className="text-white font-bold">x2 coin penalty</span>{" "}
-                and account restriction.
-              </p>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="bg-emerald-500/10 p-3 md:p-5 rounded-2xl border border-emerald-500/20 shrink-0">
+                <ShieldCheck className="text-emerald-500" size={28} />
+              </div>
+              <div>
+                <h2 className="text-white font-black italic text-xl md:text-2xl uppercase tracking-tighter leading-none">
+                  {user?.trustScore > 90 ? "ELITE EARNER" : "ACTIVE EARNER"}
+                </h2>
+                <p className="text-zinc-500 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mt-1">
+                  Trust Score: {user?.trustScore || 100}% · {user?.name}
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="bg-blue-500/5 border border-blue-500/20 p-4 md:p-5 rounded-2xl md:rounded-3xl flex gap-3">
-            <Zap className="text-blue-500 shrink-0 mt-0.5" size={20} />
-            <div>
-              <h4 className="text-blue-500 font-black text-[10px] uppercase tracking-widest mb-1">
-                Inactivity Slash
-              </h4>
-              <p className="text-zinc-500 text-[11px] leading-relaxed">
-                Accounts inactive for more than{" "}
-                <span className="text-white font-bold">7 days</span> lose 10
-                coins daily. Complete 1 task weekly to stay active.
-              </p>
+            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-5 py-3 rounded-2xl border border-zinc-800/50 self-start md:self-center">
+              <Zap
+                className="text-yellow-400 shrink-0"
+                size={18}
+                fill="currentColor"
+              />
+              <div className="flex flex-col">
+                <span className="text-white text-xs font-black uppercase italic leading-none">
+                  5 Day Streak
+                </span>
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mt-1">
+                  +5% Multiplier
+                </span>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Stats Grid */}
-        <section className="grid grid-cols-3 gap-3 md:gap-6">
+        {/* --- STATS GRID (Horizontal Scroll on tiny screens, 3-col on rest) --- */}
+        <section className="grid grid-cols-3 gap-2 md:gap-6">
           <StatCard
-            title="Available"
+            title="Active"
             value={tasks.filter((t) => t.status === "available").length}
-            icon={<TrendingUp size={18} />}
-            colorClass="bg-white/5 text-white"
+            icon={<TrendingUp size={16} />}
+            colorClass="bg-zinc-900 text-white"
           />
           <StatCard
-            title="Reviewing"
+            title="Review"
             value={tasks.filter((t) => t.status === "pending").length}
-            icon={<Clock size={18} />}
-            colorClass="bg-white/5 text-zinc-400"
+            icon={<Clock size={16} />}
+            colorClass="bg-zinc-900 text-zinc-400"
           />
           <StatCard
             title="Wallet"
             value={coins || user?.coins || 0}
-            icon={<CheckCircle size={18} />}
-            colorClass="bg-white/5 text-white"
+            icon={<CheckCircle size={16} />}
+            colorClass="bg-zinc-900 text-tiktok-cyan"
           />
         </section>
 
-        {/* Task List */}
-        <section className="space-y-4 pb-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-white">
-              Live Missions
-            </h2>
-            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-              {tasks.filter((t) => t.status === "available").length} Active
-            </span>
-          </div>
-
-          {tasks.length === 0 ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center">
-              <p className="text-zinc-600 font-bold italic text-sm">
-                No missions available right now.
+        {/* --- RULES SECTION (Stack on Mobile, Row on Desktop) --- */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="group bg-red-500/5 border border-red-500/10 p-4 rounded-2xl flex gap-4 hover:bg-red-500/10 transition-colors">
+            <AlertTriangle className="text-red-500 shrink-0 mt-1" size={20} />
+            <div>
+              <h4 className="text-red-500 font-black text-[10px] uppercase tracking-[0.2em] mb-1">
+                Slash Policy
+              </h4>
+              <p className="text-zinc-500 text-[11px] leading-snug">
+                Unfollowing within 30 days triggers a{" "}
+                <span className="text-white font-bold">2x penalty</span> and
+                instant review.
               </p>
             </div>
-          ) : (
-            <div className="grid gap-3 md:gap-4">
-              {tasks.map((task) => (
-                <TaskItem key={task.id} task={task} />
-              ))}
+          </div>
+
+          <div className="group bg-blue-500/5 border border-blue-500/10 p-4 rounded-2xl flex gap-4 hover:bg-blue-500/10 transition-colors">
+            <Zap className="text-blue-500 shrink-0 mt-1" size={20} />
+            <div>
+              <h4 className="text-blue-500 font-black text-[10px] uppercase tracking-[0.2em] mb-1">
+                Anti-Idle
+              </h4>
+              <p className="text-zinc-500 text-[11px] leading-snug">
+                7 days of inactivity will result in a{" "}
+                <span className="text-white font-bold">-10 coin</span> daily
+                decay.
+              </p>
             </div>
-          )}
+          </div>
+        </section>
+
+        {/* --- MISSIONS LIST --- */}
+        <section className="space-y-4 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl md:text-3xl font-black italic uppercase tracking-tighter text-white">
+                LIVE MISSIONS
+              </h2>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
+            </div>
+            <button className="text-zinc-600 hover:text-white transition">
+              <RefreshCw size={18} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            {tasks.length === 0 ? (
+              <div className="bg-zinc-900/50 border border-dashed border-zinc-800 rounded-[2.5rem] py-16 text-center">
+                <p className="text-zinc-600 font-bold italic text-sm tracking-widest uppercase">
+                  Scanning for new missions...
+                </p>
+              </div>
+            ) : (
+              tasks.map((task) => <TaskItem key={task.id} task={task} />)
+            )}
+          </div>
         </section>
       </div>
-    </>
+    </div>
   );
 }
