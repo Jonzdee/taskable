@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import {
   ArrowUpRight,
@@ -6,9 +6,7 @@ import {
   ArrowDownLeft,
   ShieldCheck,
   Send,
-  Clock,
   CheckCircle,
-  XCircle,
 } from "lucide-react";
 
 export default function Wallet() {
@@ -19,15 +17,20 @@ export default function Wallet() {
     setWithdrawals,
     user,
   } = useApp();
+
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [targetId, setTargetId] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  // ✅ Real data from submissions
-  const completedSubmissions = submissions.filter(
+  // ✅ Filter only current user's submissions
+  const mySubmissions = submissions.filter((s) => s.userId === user?.email);
+  const completedSubmissions = mySubmissions.filter(
     (s) => s.status === "approved",
   );
-  const pendingSubmissions = submissions.filter((s) => s.status === "pending");
+  const pendingSubmissions = mySubmissions.filter(
+    (s) => s.status === "pending",
+  );
+
   const pendingCoins = pendingSubmissions.reduce(
     (acc, s) => acc + (s.taskDetails?.reward || 0),
     0,
@@ -37,6 +40,8 @@ export default function Wallet() {
     0,
   );
 
+  const myWithdrawals = withdrawals.filter((w) => w.userId === user?.email);
+
   const handleWithdraw = (e) => {
     e.preventDefault();
     if (!withdrawAmount || !targetId) return alert("Fill in all fields");
@@ -44,14 +49,13 @@ export default function Wallet() {
       return alert("Minimum withdrawal is 500 coins");
     if (Number(withdrawAmount) > coins) return alert("Insufficient balance");
 
-    // ✅ Send to admin for approval
     const request = {
       id: Date.now(),
       userId: user?.email,
       userName: user?.name,
       amount: Number(withdrawAmount),
       targetId,
-      status: "pending", // pending | approved | rejected
+      status: "pending",
       requestedAt: new Date().toISOString(),
     };
 
@@ -95,7 +99,6 @@ export default function Wallet() {
           </p>
         </div>
 
-        {/* ✅ Real lifetime & pending */}
         <div className="grid grid-cols-2 gap-8 border-t border-zinc-800/50 mt-12 pt-8">
           <div className="text-center border-r border-zinc-800/50">
             <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-1">
@@ -116,44 +119,42 @@ export default function Wallet() {
         </div>
       </div>
 
-      {/* ✅ Pending Withdrawal Status */}
-      {withdrawals.filter((w) => w.userId === user?.email).length > 0 && (
+      {/* Withdrawal Requests Status */}
+      {myWithdrawals.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">
             Withdrawal Requests
           </h3>
-          {withdrawals
-            .filter((w) => w.userId === user?.email)
-            .map((w) => (
-              <div
-                key={w.id}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4 flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-white font-bold text-sm">
-                    {w.amount.toLocaleString()} coins → {w.targetId}
-                  </p>
-                  <p className="text-zinc-600 text-[10px] mt-0.5">
-                    {new Date(w.requestedAt).toLocaleString()}
-                  </p>
-                </div>
-                <span
-                  className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase ${
-                    w.status === "pending"
-                      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
-                      : w.status === "approved"
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-red-500/10 text-red-400 border-red-500/20"
-                  }`}
-                >
-                  {w.status === "pending"
-                    ? "⏳ Processing"
-                    : w.status === "approved"
-                      ? "✓ Paid"
-                      : "✗ Rejected"}
-                </span>
+          {myWithdrawals.map((w) => (
+            <div
+              key={w.id}
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4 flex items-center justify-between"
+            >
+              <div>
+                <p className="text-white font-bold text-sm">
+                  {w.amount.toLocaleString()} coins → {w.targetId}
+                </p>
+                <p className="text-zinc-600 text-[10px] mt-0.5">
+                  {new Date(w.requestedAt).toLocaleString()}
+                </p>
               </div>
-            ))}
+              <span
+                className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase ${
+                  w.status === "pending"
+                    ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                    : w.status === "approved"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : "bg-red-500/10 text-red-400 border-red-500/20"
+                }`}
+              >
+                {w.status === "pending"
+                  ? "⏳ Processing"
+                  : w.status === "approved"
+                    ? "✓ Paid"
+                    : "✗ Rejected"}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -233,7 +234,7 @@ export default function Wallet() {
         </form>
       </div>
 
-      {/* ✅ Real Transaction History */}
+      {/* Transaction History */}
       <div className="space-y-6 pb-10">
         <div className="flex items-center justify-between px-4">
           <h3 className="font-black italic text-zinc-400 uppercase tracking-widest text-sm flex items-center gap-2">
@@ -242,19 +243,17 @@ export default function Wallet() {
         </div>
 
         <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-[2.5rem] overflow-hidden">
-          {completedSubmissions.length === 0 &&
-            withdrawals.filter((w) => w.userId === user?.email).length ===
-              0 && (
-              <p className="text-center text-zinc-600 font-bold italic p-10">
-                No transactions yet.
-              </p>
-            )}
+          {completedSubmissions.length === 0 && myWithdrawals.length === 0 && (
+            <p className="text-center text-zinc-600 font-bold italic p-10">
+              No transactions yet.
+            </p>
+          )}
 
           {/* Completed tasks */}
           {completedSubmissions.map((s) => (
             <TransactionItem
               key={s.id}
-              label={`Task: ${s.taskDetails?.type} ${s.taskDetails?.target}`}
+              label={`Task: ${s.taskDetails?.type} → ${s.taskDetails?.target}`}
               date={new Date(s.submittedAt).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -264,9 +263,9 @@ export default function Wallet() {
             />
           ))}
 
-          {/* Withdrawal history */}
-          {withdrawals
-            .filter((w) => w.userId === user?.email && w.status === "approved")
+          {/* Approved withdrawals */}
+          {myWithdrawals
+            .filter((w) => w.status === "approved")
             .map((w) => (
               <TransactionItem
                 key={w.id}
@@ -307,7 +306,7 @@ const TransactionItem = ({ label, date, amount, type }) => (
       </div>
     </div>
     <p
-      className={`font-black text-sm tracking-tighter ${type === "credit" ? "text-white" : "text-zinc-600"}`}
+      className={`font-black text-sm tracking-tighter ${type === "credit" ? "text-emerald-400" : "text-red-400"}`}
     >
       {amount}
     </p>
