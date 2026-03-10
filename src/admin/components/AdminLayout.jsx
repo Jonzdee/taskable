@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useApp } from "../context/AppContext";
+import { useApp } from "../../context/AppContext";
 import AdminSidebar from "./AdminSidebar";
 
 const AdminLayout = () => {
@@ -14,7 +14,7 @@ const AdminLayout = () => {
       <AdminSidebar />
 
       <main className="flex-1 p-4 md:p-8 lg:ml-64 pb-24 lg:pb-8">
-        <Outlet /> {/* ✅ Render nested routes */}
+        <Outlet /> 
       </main>
     </div>
   );

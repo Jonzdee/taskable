@@ -3,34 +3,35 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  // ---------------- AUTH STATE ----------------
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
-
-  // ---------------- APP DATA ----------------
   const [coins, setCoins] = useState(0);
   const [tasks, setTasks] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
 
-  // ---------------- LOAD SESSION & DATA ----------------
+  // ---------------- LOAD FROM LOCALSTORAGE ----------------
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
-    const savedCoins = localStorage.getItem("coins");
     const savedTasks = localStorage.getItem("tasks");
+    const savedSubmissions = localStorage.getItem("submissions");
+    const savedWithdrawals = localStorage.getItem("withdrawals"); // ✅ NEW
+    const savedCoins = localStorage.getItem("coins");
 
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
       setUser(parsedUser);
       setIsLoggedIn(true);
-      setCoins(parsedUser.coins || 0);
     }
 
-    if (savedCoins) {
+    // ✅ Load coins from dedicated key (most up to date)
+    if (savedCoins !== null) {
       setCoins(Number(savedCoins));
+    } else if (savedUser) {
+      setCoins(JSON.parse(savedUser).coins || 0);
     }
 
-    // Load tasks from localStorage or set defaults if empty
     if (savedTasks) {
       setTasks(JSON.parse(savedTasks));
     } else {
@@ -53,29 +54,33 @@ export const AppProvider = ({ children }) => {
       setTasks(defaultTasks);
       localStorage.setItem("tasks", JSON.stringify(defaultTasks));
     }
+
+    if (savedSubmissions) setSubmissions(JSON.parse(savedSubmissions));
+    if (savedWithdrawals) setWithdrawals(JSON.parse(savedWithdrawals)); // ✅ NEW
   }, []);
 
-  // ---------------- PERSISTENCE ----------------
-  // Save tasks whenever they change
+  // ---------------- PERSIST TO LOCALSTORAGE ----------------
   useEffect(() => {
-    if (tasks.length > 0) {
-      localStorage.setItem("tasks", JSON.stringify(tasks));
-    }
+    if (tasks.length > 0) localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  // Save user whenever it changes
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-    }
+    if (user) localStorage.setItem("user", JSON.stringify(user));
   }, [user]);
 
-  // Save coins whenever they change
   useEffect(() => {
-    localStorage.setItem("coins", coins);
+    localStorage.setItem("coins", String(coins)); // ✅ always save as string
   }, [coins]);
 
-  // ---------------- AUTH ACTIONS ----------------
+  useEffect(() => {
+    localStorage.setItem("submissions", JSON.stringify(submissions));
+  }, [submissions]);
+
+  useEffect(() => {
+    localStorage.setItem("withdrawals", JSON.stringify(withdrawals)); // ✅ NEW
+  }, [withdrawals]);
+
+  // ---------------- AUTH ----------------
   const login = (userData) => {
     const newUser = {
       name: userData?.name || "New User",
@@ -86,10 +91,9 @@ export const AppProvider = ({ children }) => {
       trustScore: 100,
       lastCheckIn: null,
       coins: 0,
-      isAdmin: userData?.isAdmin || false, // Important for Admin Login
+      isAdmin: userData?.isAdmin || false,
       ...userData,
     };
-
     setUser(newUser);
     setCoins(newUser.coins || 0);
     setIsLoggedIn(true);
@@ -99,7 +103,6 @@ export const AppProvider = ({ children }) => {
     setIsLoggedIn(false);
     setUser(null);
     setCoins(0);
-    // Note: We don't clear tasks on logout so other users can see them
     localStorage.removeItem("user");
     localStorage.removeItem("coins");
   };
@@ -108,33 +111,33 @@ export const AppProvider = ({ children }) => {
     setUser((prev) => ({ ...prev, ...data }));
   };
 
-  // ---------------- TASK ACTIONS ----------------
+  // ---------------- TASKS ----------------
   const addTask = (newTask) => {
     setTasks((prev) => [
-      {
-        id: Date.now(), // Unique ID
-        status: "available",
-        ...newTask,
-      },
+      { id: Date.now(), status: "available", ...newTask },
       ...prev,
     ]);
   };
 
   const updateTaskStatus = (id, status) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((t) => (t.id === id ? { ...t, status } : t)),
-    );
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
   };
 
-  // ---------------- COIN SYSTEM ----------------
+  // ---------------- COINS ----------------
   const addCoins = (amount) => {
-    setCoins((prev) => prev + amount);
-    setUser((prev) =>
-      prev ? { ...prev, coins: (prev.coins || 0) + amount } : prev,
-    );
+    setCoins((prev) => {
+      const updated = prev + amount;
+      localStorage.setItem("coins", String(updated)); // ✅ immediate persist
+      return updated;
+    });
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, coins: (prev.coins || 0) + amount };
+      localStorage.setItem("user", JSON.stringify(updated)); // ✅ immediate persist
+      return updated;
+    });
   };
 
-  // ---------------- FRAUD SYSTEM ----------------
   const applyPenalty = (penaltyAmount, trustReduction) => {
     setCoins((prev) => Math.max(0, prev - penaltyAmount));
     setUser((prev) => {
@@ -160,7 +163,44 @@ export const AppProvider = ({ children }) => {
     return true;
   };
 
-  // ---------------- ADMIN ACTIONS ----------------
+  // ---------------- SUBMISSIONS ----------------
+  const submitTaskProof = (taskId, screenshotBase64, taskDetails) => {
+    const submission = {
+      id: Date.now(),
+      taskId,
+      userId: user?.email,
+      userName: user?.name,
+      screenshot: screenshotBase64,
+      taskDetails,
+      status: "pending",
+      submittedAt: new Date().toISOString(),
+    };
+    setSubmissions((prev) => {
+      const updated = [submission, ...prev];
+      localStorage.setItem("submissions", JSON.stringify(updated)); // ✅ immediate persist
+      return updated;
+    });
+    updateTaskStatus(taskId, "pending");
+  };
+
+  const adminReviewSubmission = (submissionId, approved) => {
+    setSubmissions((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id !== submissionId) return s;
+        if (approved) {
+          addCoins(s.taskDetails.reward); // ✅ coins added immediately
+          updateTaskStatus(s.taskId, "completed");
+          return { ...s, status: "approved" };
+        } else {
+          updateTaskStatus(s.taskId, "available");
+          return { ...s, status: "rejected" };
+        }
+      });
+      localStorage.setItem("submissions", JSON.stringify(updated)); // ✅ immediate persist
+      return updated;
+    });
+  };
+
   const adminVerifyTask = (taskId, isApproved, reward) => {
     if (isApproved) {
       addCoins(reward);
@@ -183,12 +223,15 @@ export const AppProvider = ({ children }) => {
     addCoins,
     tasks,
     setTasks,
-    addTask, 
+    addTask,
     updateTaskStatus,
     tickets,
     setTickets,
     withdrawals,
     setWithdrawals,
+    submissions,
+    submitTaskProof,
+    adminReviewSubmission,
     claimDailyBonus,
     adminVerifyTask,
     applyPenalty,

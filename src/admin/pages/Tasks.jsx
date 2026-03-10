@@ -5,7 +5,6 @@ import { Plus, Trash2, Globe, Coins, Tag, PlusCircle } from "lucide-react";
 export default function Tasks() {
   const { tasks, addTask, setTasks } = useApp();
 
-  // Form State
   const [showForm, setShowForm] = useState(false);
   const [newTask, setNewTask] = useState({
     type: "Follow",
@@ -17,14 +16,12 @@ export default function Tasks() {
     e.preventDefault();
     if (!newTask.target || !newTask.reward) return;
 
-    // Call the context function
     addTask({
       type: newTask.type,
       target: newTask.target,
       reward: Number(newTask.reward),
     });
 
-    // Reset Form
     setNewTask({ type: "Follow", target: "", reward: "" });
     setShowForm(false);
   };
@@ -56,7 +53,7 @@ export default function Tasks() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-4"
+          className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-4 gap-6"
         >
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">
@@ -90,7 +87,7 @@ export default function Tasks() {
                 onChange={(e) =>
                   setNewTask({ ...newTask, target: e.target.value })
                 }
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-11 pl-12 py-3 text-white outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:border-emerald-500" // ✅ fixed duplicate py
               />
             </div>
           </div>
@@ -111,13 +108,16 @@ export default function Tasks() {
                 onChange={(e) =>
                   setNewTask({ ...newTask, reward: e.target.value })
                 }
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-11 pl-12 py-3 text-white outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:border-emerald-500" // ✅ fixed duplicate py
               />
             </div>
           </div>
 
           <div className="md:col-span-4">
-            <button className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition shadow-xl">
+            <button
+              type="submit"
+              className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition shadow-xl"
+            >
               Publish Mission to Dashboard
             </button>
           </div>
