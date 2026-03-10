@@ -3,85 +3,89 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
-  const [coins, setCoins] = useState(0);
-  const [tasks, setTasks] = useState([]);
+  // ---------------- SYNCHRONOUS INITIALIZATION ----------------
+  // This runs IMMEDIATELY during the first render, preventing the redirect bug.
+
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem("user") !== null;
+  });
+
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [coins, setCoins] = useState(() => {
+    const saved = localStorage.getItem("coins");
+    return saved !== null ? Number(saved) : 0;
+  });
+
+  const [tasks, setTasks] = useState(() => {
+    const saved = localStorage.getItem("tasks");
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 1,
+        type: "Follow",
+        target: "@tiktok_star",
+        reward: 150,
+        status: "available",
+      },
+      {
+        id: 2,
+        type: "Like",
+        target: "Trending Video #1",
+        reward: 50,
+        status: "available",
+      },
+    ];
+  });
+
+  const [submissions, setSubmissions] = useState(() => {
+    const saved = localStorage.getItem("submissions");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [withdrawals, setWithdrawals] = useState(() => {
+    const saved = localStorage.getItem("withdrawals");
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [tickets, setTickets] = useState([]);
-  const [withdrawals, setWithdrawals] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
 
-  // ---------------- LOAD FROM LOCALSTORAGE ----------------
+  // ---------------- PERSISTENCE ----------------
+  // Sync state changes back to localStorage automatically
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    const savedTasks = localStorage.getItem("tasks");
-    const savedSubmissions = localStorage.getItem("submissions");
-    const savedWithdrawals = localStorage.getItem("withdrawals"); // ✅ NEW
-    const savedCoins = localStorage.getItem("coins");
-
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setIsLoggedIn(true);
-    }
-
-    // ✅ Load coins from dedicated key (most up to date)
-    if (savedCoins !== null) {
-      setCoins(Number(savedCoins));
-    } else if (savedUser) {
-      setCoins(JSON.parse(savedUser).coins || 0);
-    }
-
-    if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("isLoggedIn", "true");
     } else {
-      const defaultTasks = [
-        {
-          id: 1,
-          type: "Follow",
-          target: "@tiktok_star",
-          reward: 150,
-          status: "available",
-        },
-        {
-          id: 2,
-          type: "Like",
-          target: "Trending Video #1",
-          reward: 50,
-          status: "available",
-        },
-      ];
-      setTasks(defaultTasks);
-      localStorage.setItem("tasks", JSON.stringify(defaultTasks));
+      localStorage.removeItem("user");
+      localStorage.removeItem("isLoggedIn");
     }
-
-    if (savedSubmissions) setSubmissions(JSON.parse(savedSubmissions));
-    if (savedWithdrawals) setWithdrawals(JSON.parse(savedWithdrawals)); // ✅ NEW
-  }, []);
-
-  // ---------------- PERSIST TO LOCALSTORAGE ----------------
-  useEffect(() => {
-    if (tasks.length > 0) localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-  useEffect(() => {
-    if (user) localStorage.setItem("user", JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem("coins", String(coins)); // ✅ always save as string
+    localStorage.setItem("coins", String(coins));
   }, [coins]);
+
+  useEffect(() => {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+  }, [tasks]);
 
   useEffect(() => {
     localStorage.setItem("submissions", JSON.stringify(submissions));
   }, [submissions]);
 
   useEffect(() => {
-    localStorage.setItem("withdrawals", JSON.stringify(withdrawals)); // ✅ NEW
+    localStorage.setItem("withdrawals", JSON.stringify(withdrawals));
   }, [withdrawals]);
 
   // ---------------- AUTH ----------------
   const login = (userData) => {
+    const isSystemAdmin =
+      userData?.email?.toLowerCase().trim() === "admin@test.com";
+
     const newUser = {
       name: userData?.name || "New User",
       email: userData?.email || "",
@@ -90,10 +94,10 @@ export const AppProvider = ({ children }) => {
       referrals: 0,
       trustScore: 100,
       lastCheckIn: null,
-      coins: 0,
-      isAdmin: userData?.isAdmin || false,
+      isAdmin: isSystemAdmin || userData?.isAdmin || false,
       ...userData,
     };
+
     setUser(newUser);
     setCoins(newUser.coins || 0);
     setIsLoggedIn(true);
@@ -103,8 +107,8 @@ export const AppProvider = ({ children }) => {
     setIsLoggedIn(false);
     setUser(null);
     setCoins(0);
-    localStorage.removeItem("user");
-    localStorage.removeItem("coins");
+    localStorage.clear();
+    window.location.href = "/"; // Force redirect to landing
   };
 
   const updateUser = (data) => {
@@ -125,29 +129,24 @@ export const AppProvider = ({ children }) => {
 
   // ---------------- COINS ----------------
   const addCoins = (amount) => {
-    setCoins((prev) => {
-      const updated = prev + amount;
-      localStorage.setItem("coins", String(updated)); // ✅ immediate persist
-      return updated;
-    });
-    setUser((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, coins: (prev.coins || 0) + amount };
-      localStorage.setItem("user", JSON.stringify(updated)); // ✅ immediate persist
-      return updated;
-    });
+    setCoins((prev) => prev + amount);
+    // User object coins stay in sync via the useEffect monitoring [user]
+    setUser((prev) =>
+      prev ? { ...prev, coins: (prev.coins || 0) + amount } : prev,
+    );
   };
 
   const applyPenalty = (penaltyAmount, trustReduction) => {
     setCoins((prev) => Math.max(0, prev - penaltyAmount));
-    setUser((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        coins: Math.max(0, (prev.coins || 0) - penaltyAmount),
-        trustScore: Math.max(0, (prev.trustScore || 0) - trustReduction),
-      };
-    });
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            coins: Math.max(0, (prev.coins || 0) - penaltyAmount),
+            trustScore: Math.max(0, (prev.trustScore || 0) - trustReduction),
+          }
+        : prev,
+    );
   };
 
   // ---------------- DAILY BONUS ----------------
@@ -175,30 +174,24 @@ export const AppProvider = ({ children }) => {
       status: "pending",
       submittedAt: new Date().toISOString(),
     };
-    setSubmissions((prev) => {
-      const updated = [submission, ...prev];
-      localStorage.setItem("submissions", JSON.stringify(updated)); // ✅ immediate persist
-      return updated;
-    });
+    setSubmissions((prev) => [submission, ...prev]);
     updateTaskStatus(taskId, "pending");
   };
 
   const adminReviewSubmission = (submissionId, approved) => {
-    setSubmissions((prev) => {
-      const updated = prev.map((s) => {
+    setSubmissions((prev) =>
+      prev.map((s) => {
         if (s.id !== submissionId) return s;
         if (approved) {
-          addCoins(s.taskDetails.reward); // ✅ coins added immediately
+          addCoins(s.taskDetails.reward);
           updateTaskStatus(s.taskId, "completed");
           return { ...s, status: "approved" };
         } else {
           updateTaskStatus(s.taskId, "available");
           return { ...s, status: "rejected" };
         }
-      });
-      localStorage.setItem("submissions", JSON.stringify(updated)); // ✅ immediate persist
-      return updated;
-    });
+      }),
+    );
   };
 
   const adminVerifyTask = (taskId, isApproved, reward) => {
@@ -211,33 +204,36 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // ---------------- CONTEXT VALUE ----------------
-  const value = {
-    isLoggedIn,
-    user,
-    login,
-    logout,
-    updateUser,
-    coins,
-    setCoins,
-    addCoins,
-    tasks,
-    setTasks,
-    addTask,
-    updateTaskStatus,
-    tickets,
-    setTickets,
-    withdrawals,
-    setWithdrawals,
-    submissions,
-    submitTaskProof,
-    adminReviewSubmission,
-    claimDailyBonus,
-    adminVerifyTask,
-    applyPenalty,
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider
+      value={{
+        isLoggedIn,
+        user,
+        login,
+        logout,
+        updateUser,
+        coins,
+        setCoins,
+        addCoins,
+        applyPenalty,
+        tasks,
+        setTasks,
+        addTask,
+        updateTaskStatus,
+        tickets,
+        setTickets,
+        withdrawals,
+        setWithdrawals,
+        submissions,
+        submitTaskProof,
+        adminReviewSubmission,
+        claimDailyBonus,
+        adminVerifyTask,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
 };
 
 export const useApp = () => useContext(AppContext);
